@@ -1,1 +1,1 @@
-# Crop-selection-and-yield-prediction-using-ML-
+# Crop selection and yield prediction using ML
