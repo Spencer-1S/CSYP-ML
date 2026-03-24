@@ -1,3 +1,3 @@
 # Crop selection and yield prediction using ML
 
-### by Vishal Anand and Aneesh Jain abc
+### by Vishal Anand and Aneesh Jain
