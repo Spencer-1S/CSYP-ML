@@ -91,18 +91,18 @@ CSYP-ML/
 
 - Python 3.7+
 - Jupyter Notebook
-- Python libraries: pandas, numpy, scikit-learn, matplotlib
+- Python libraries: pandas, numpy, scikit-learn, matplotlib, seaborn, scipy, joblib
 
 ### Install Dependencies
 
 Windows:
 ```bash
-pip install pandas numpy scikit-learn jupyter matplotlib
+pip install pandas numpy scikit-learn jupyter matplotlib seaborn scipy joblib
 ```
 
 macOS/Linux:
 ```bash
-pip3 install pandas numpy scikit-learn jupyter matplotlib
+pip3 install pandas numpy scikit-learn jupyter matplotlib seaborn scipy joblib
 ```
 
 ### Run the Notebook
@@ -174,7 +174,27 @@ After running the notebook, you will understand:
 
 ## Generated Files
 
-The notebook does not generate new dataset files. It reads existing CSV files, performs analysis/validation, and prepares data in-memory for model training.
+The notebook does not generate new dataset files. It reads existing CSV files, performs analysis/validation, trains a crop recommendation model, and saves the trained model pipeline for reuse.
+
+Artifacts saved after training:
+
+- `Models/artifacts/crop_recommendation_pipeline.joblib` (preprocessing + trained model)
+- `Models/artifacts/crop_recommendation_metadata.json` (feature order + training metadata)
+
+### Predict on Unseen Data
+
+```python
+import joblib
+import pandas as pd
+
+pipe = joblib.load('Models/artifacts/crop_recommendation_pipeline.joblib')
+
+X_new = pd.DataFrame([
+   {"N": 90, "P": 42, "K": 43, "temperature": 20.9, "humidity": 82.0, "ph": 6.5, "rainfall": 203.0}
+])
+
+print(pipe.predict(X_new)[0])
+```
 
 ---
 

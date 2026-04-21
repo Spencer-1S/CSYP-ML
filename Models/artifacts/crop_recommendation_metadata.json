@@ -1,0 +1,18 @@
+{
+  "features": [
+    "N",
+    "P",
+    "K",
+    "temperature",
+    "humidity",
+    "ph",
+    "rainfall"
+  ],
+  "target": "label",
+  "random_state": 42,
+  "cv": "StratifiedKFold(n_splits=5, shuffle=True, random_state=42)",
+  "optimized_for": "f1_macro",
+  "best_baseline": "random_forest",
+  "holdout_test_accuracy": 0.9931818181818182,
+  "holdout_test_f1_macro": 0.9931775541531639
+}
