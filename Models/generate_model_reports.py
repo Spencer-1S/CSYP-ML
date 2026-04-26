@@ -69,7 +69,9 @@ def _plot_confusion_matrix(cm: np.ndarray, labels: list[str], title: str, out_pa
     import matplotlib.pyplot as plt
     import seaborn as sns
 
-    fig = plt.figure(figsize=(10, 8))
+    n = max(2, len(labels))
+    size = min(18, max(8, int(0.35 * n) + 4))
+    fig = plt.figure(figsize=(size, size))
     ax = fig.add_subplot(111)
     sns.heatmap(
         cm,
@@ -83,6 +85,107 @@ def _plot_confusion_matrix(cm: np.ndarray, labels: list[str], title: str, out_pa
     ax.set_title(title)
     ax.set_xlabel("Predicted")
     ax.set_ylabel("Actual")
+    ax.tick_params(axis="x", rotation=45, labelsize=8)
+    ax.tick_params(axis="y", rotation=0, labelsize=8)
+    fig.tight_layout()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, dpi=180)
+    plt.close(fig)
+
+
+def _plot_confusion_matrix_normalized(
+    cm: np.ndarray,
+    labels: list[str],
+    title: str,
+    out_path: Path,
+    normalize: str = "true",
+) -> None:
+    """Plot a normalized confusion matrix.
+
+    normalize:
+      - 'true'  : rows sum to 1 (recall per class)
+      - 'pred'  : columns sum to 1
+      - 'all'   : global normalization
+    """
+
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    cm = np.asarray(cm, dtype=float)
+    denom: np.ndarray
+    if normalize == "true":
+        denom = cm.sum(axis=1, keepdims=True)
+    elif normalize == "pred":
+        denom = cm.sum(axis=0, keepdims=True)
+    else:
+        denom = np.array([[cm.sum()]])
+    denom = np.where(denom == 0, 1.0, denom)
+    cmn = cm / denom
+
+    n = max(2, len(labels))
+    size = min(18, max(8, int(0.35 * n) + 4))
+    fig = plt.figure(figsize=(size, size))
+    ax = fig.add_subplot(111)
+    sns.heatmap(
+        cmn,
+        annot=False,
+        cmap="Blues",
+        cbar=True,
+        vmin=0.0,
+        vmax=1.0,
+        xticklabels=labels,
+        yticklabels=labels,
+        ax=ax,
+    )
+    ax.set_title(title)
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("Actual")
+    ax.tick_params(axis="x", rotation=45, labelsize=8)
+    ax.tick_params(axis="y", rotation=0, labelsize=8)
+    fig.tight_layout()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, dpi=180)
+    plt.close(fig)
+
+
+def _plot_confusion_errors(
+    cm: np.ndarray,
+    labels: list[str],
+    title: str,
+    out_path: Path,
+) -> None:
+    """Plot only off-diagonal errors to avoid 'all-diagonal' charts."""
+
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    cm = np.asarray(cm, dtype=float)
+    cm_err = cm.copy()
+    np.fill_diagonal(cm_err, 0.0)
+
+    # If there are no errors, still write a plot for consistency.
+    vmax = float(np.max(cm_err)) if float(np.max(cm_err)) > 0 else 1.0
+
+    n = max(2, len(labels))
+    size = min(18, max(8, int(0.35 * n) + 4))
+    fig = plt.figure(figsize=(size, size))
+    ax = fig.add_subplot(111)
+    sns.heatmap(
+        cm_err,
+        annot=False,
+        cmap="Reds",
+        cbar=True,
+        vmin=0.0,
+        vmax=vmax,
+        xticklabels=labels,
+        yticklabels=labels,
+        ax=ax,
+    )
+    ax.set_title(title)
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("Actual")
+    ax.tick_params(axis="x", rotation=45, labelsize=8)
+    ax.tick_params(axis="y", rotation=0, labelsize=8)
     fig.tight_layout()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path, dpi=180)
@@ -180,6 +283,48 @@ def _plot_scatter_true_pred(y_true: np.ndarray, y_pred: np.ndarray, title: str, 
     plt.close(fig)
 
 
+def _plot_scatter_true_pred_zoomed(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    title: str,
+    out_path: Path,
+    lo: float = 1.0,
+    hi: float = 99.0,
+) -> None:
+    """Zoomed scatter plot using percentile-based axis limits.
+
+    This prevents extreme outliers from flattening the plot and makes the
+    typical-range relationship visible.
+    """
+
+    import matplotlib.pyplot as plt
+
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
+    both = np.concatenate([y_true, y_pred])
+    both = both[np.isfinite(both)]
+    if both.size == 0:
+        return
+
+    q_lo, q_hi = np.percentile(both, [lo, hi])
+    if not np.isfinite(q_lo) or not np.isfinite(q_hi) or q_hi <= q_lo:
+        return
+
+    fig = plt.figure(figsize=(7, 6))
+    ax = fig.add_subplot(111)
+    ax.scatter(y_true, y_pred, s=10, alpha=0.35)
+    ax.plot([q_lo, q_hi], [q_lo, q_hi], color="black", linewidth=1)
+    ax.set_xlim(float(q_lo), float(q_hi))
+    ax.set_ylim(float(q_lo), float(q_hi))
+    ax.set_title(title)
+    ax.set_xlabel("Actual")
+    ax.set_ylabel("Predicted")
+    fig.tight_layout()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, dpi=180)
+    plt.close(fig)
+
+
 def _plot_residuals(y_true: np.ndarray, y_pred: np.ndarray, title: str, out_path: Path) -> None:
     import matplotlib.pyplot as plt
     import seaborn as sns
@@ -197,6 +342,59 @@ def _plot_residuals(y_true: np.ndarray, y_pred: np.ndarray, title: str, out_path
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path, dpi=180)
     plt.close(fig)
+
+
+def _plot_residuals_zoomed(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    title: str,
+    out_path: Path,
+    lo: float = 1.0,
+    hi: float = 99.0,
+) -> None:
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
+    resid = y_pred - y_true
+    resid = resid[np.isfinite(resid)]
+    if resid.size == 0:
+        return
+
+    q_lo, q_hi = np.percentile(resid, [lo, hi])
+    if not np.isfinite(q_lo) or not np.isfinite(q_hi) or q_hi <= q_lo:
+        return
+
+    fig = plt.figure(figsize=(7, 5))
+    ax = fig.add_subplot(111)
+    sns.histplot(resid, bins=60, kde=True, ax=ax)
+    ax.set_xlim(float(q_lo), float(q_hi))
+    ax.set_title(title)
+    ax.set_xlabel("Residual (pred - actual)")
+    fig.tight_layout()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, dpi=180)
+    plt.close(fig)
+
+
+def _distribution_summary(x: np.ndarray) -> dict[str, float]:
+    x = np.asarray(x, dtype=float)
+    x = x[np.isfinite(x)]
+    if x.size == 0:
+        return {}
+    q = np.percentile(x, [0, 1, 5, 25, 50, 75, 95, 99, 100])
+    return {
+        "min": float(q[0]),
+        "p01": float(q[1]),
+        "p05": float(q[2]),
+        "p25": float(q[3]),
+        "p50": float(q[4]),
+        "p75": float(q[5]),
+        "p95": float(q[6]),
+        "p99": float(q[7]),
+        "max": float(q[8]),
+    }
 
 
 def _plot_group_mae(df: pd.DataFrame, group_col: str, err_col: str, title: str, out_path: Path, top_n: int = 12) -> None:
@@ -277,6 +475,19 @@ def generate_reports(
         "Crop Engine (RandomForest) - Confusion Matrix (CV)",
         crop_out / "random_forest_confusion_matrix.png",
     )
+    _plot_confusion_matrix_normalized(
+        np.asarray(rf_metrics["confusion_matrix"], dtype=int),
+        rf_metrics["labels"],
+        "Crop Engine (RandomForest) - Confusion Matrix (Row-normalized)",
+        crop_out / "random_forest_confusion_matrix_normalized.png",
+        normalize="true",
+    )
+    _plot_confusion_errors(
+        np.asarray(rf_metrics["confusion_matrix"], dtype=int),
+        rf_metrics["labels"],
+        "Crop Engine (RandomForest) - Errors Only (Off-diagonal)",
+        crop_out / "random_forest_confusion_errors.png",
+    )
     _plot_f1_by_class(
         rf_metrics["per_class"],
         "Crop Engine (RandomForest) - F1 by Class (CV)",
@@ -309,6 +520,19 @@ def generate_reports(
         bayes_metrics["labels"],
         "Crop Engine (BayesNet) - Confusion Matrix (CV)",
         crop_out / "bayesnet_confusion_matrix.png",
+    )
+    _plot_confusion_matrix_normalized(
+        np.asarray(bayes_metrics["confusion_matrix"], dtype=int),
+        bayes_metrics["labels"],
+        "Crop Engine (BayesNet) - Confusion Matrix (Row-normalized)",
+        crop_out / "bayesnet_confusion_matrix_normalized.png",
+        normalize="true",
+    )
+    _plot_confusion_errors(
+        np.asarray(bayes_metrics["confusion_matrix"], dtype=int),
+        bayes_metrics["labels"],
+        "Crop Engine (BayesNet) - Errors Only (Off-diagonal)",
+        crop_out / "bayesnet_confusion_errors.png",
     )
     _plot_f1_by_class(
         bayes_metrics["per_class"],
@@ -347,6 +571,9 @@ def generate_reports(
         "rows": int(len(df_prod2)),
         "cv_splits": int(yield_cv_splits),
         "metrics": _regression_metrics(y_true, y_pred),
+        "y_true_summary": _distribution_summary(y_true),
+        "y_pred_summary": _distribution_summary(y_pred),
+        "abs_error_summary": _distribution_summary(np.abs(y_pred - y_true)),
         "yield_units": str(y_eng.yield_units),
     }
     _write_json(yield_out / "metrics.json", y_metrics)
@@ -356,11 +583,27 @@ def generate_reports(
         f"Yield (Tabular) - Actual vs Predicted (CV) [{y_eng.yield_units}]",
         yield_out / "actual_vs_predicted.png",
     )
+    _plot_scatter_true_pred_zoomed(
+        y_true,
+        y_pred,
+        f"Yield (Tabular) - Actual vs Predicted (Zoomed p01–p99) [{y_eng.yield_units}]",
+        yield_out / "actual_vs_predicted_zoomed.png",
+        lo=1.0,
+        hi=99.0,
+    )
     _plot_residuals(
         y_true,
         y_pred,
         "Yield (Tabular) - Residuals (CV)",
         yield_out / "residuals.png",
+    )
+    _plot_residuals_zoomed(
+        y_true,
+        y_pred,
+        "Yield (Tabular) - Residuals (Zoomed p01–p99)",
+        yield_out / "residuals_zoomed.png",
+        lo=1.0,
+        hi=99.0,
     )
 
     df_err = pd.DataFrame({
@@ -425,6 +668,9 @@ def generate_reports(
                 "sequences": int(len(yseq)),
                 "test_size": float(deep_test_size),
                 "metrics": _regression_metrics(yte, yhat),
+                "y_true_summary": _distribution_summary(yte),
+                "y_pred_summary": _distribution_summary(yhat),
+                "abs_error_summary": _distribution_summary(np.abs(yhat - yte)),
                 "yield_units": str(y_eng.yield_units),
                 "note": "Evaluation uses sequences built from the dataset and a random train/test split. If the deep model was trained earlier on overlapping sequences, this is not a strict holdout metric.",
             }
@@ -435,11 +681,27 @@ def generate_reports(
                 f"Yield (CNN→LSTM) - Actual vs Predicted [{y_eng.yield_units}]",
                 deep_out / "actual_vs_predicted.png",
             )
+            _plot_scatter_true_pred_zoomed(
+                yte,
+                yhat,
+                f"Yield (CNN→LSTM) - Actual vs Predicted (Zoomed p01–p99) [{y_eng.yield_units}]",
+                deep_out / "actual_vs_predicted_zoomed.png",
+                lo=1.0,
+                hi=99.0,
+            )
             _plot_residuals(
                 yte,
                 yhat,
                 "Yield (CNN→LSTM) - Residuals",
                 deep_out / "residuals.png",
+            )
+            _plot_residuals_zoomed(
+                yte,
+                yhat,
+                "Yield (CNN→LSTM) - Residuals (Zoomed p01–p99)",
+                deep_out / "residuals_zoomed.png",
+                lo=1.0,
+                hi=99.0,
             )
         except Exception as ex:  # noqa: BLE001
             deep_report = {
