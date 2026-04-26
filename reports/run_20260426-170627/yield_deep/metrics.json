@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "group_cols": [
+    "State",
+    "Crop"
+  ],
+  "metrics": {
+    "mae": 1.942735030535463,
+    "median_ae": 0.25330546843339574,
+    "r2": 0.07392636854931112,
+    "rmse": 39.543651082503864
+  },
+  "note": "Evaluation uses sequences built from the dataset and a random train/test split. If the deep model was trained earlier on overlapping sequences, this is not a strict holdout metric.",
+  "sequences": 53806,
+  "test_size": 0.2,
+  "window": 4,
+  "yield_units": "t/ha"
+}
