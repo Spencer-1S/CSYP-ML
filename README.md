@@ -1,4 +1,4 @@
-# Precision Agriculture: Dual-Engine Crop Recommendation + Yield Prediction
+# Dual-Engine Crop Recommendation and Yield Prediction
 
 This repository implements a **dual-engine machine learning system** for precision agriculture:
 
