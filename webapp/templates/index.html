@@ -5,81 +5,167 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Dual-Engine Crop + Yield Predictor</title>
     <style>
-      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; }
-      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-      .card { border: 1px solid #ddd; border-radius: 10px; padding: 16px; }
-      .row { display: grid; grid-template-columns: 160px 1fr; gap: 10px; align-items: center; margin: 8px 0; }
-      input, textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 8px; }
-      button { padding: 10px 14px; border: 1px solid #333; background: #111; color: #fff; border-radius: 10px; cursor: pointer; }
-      .errors { background: #fff3cd; border: 1px solid #ffeeba; padding: 10px; border-radius: 10px; margin-bottom: 14px; }
-      .pred { background: #e7f5ff; border: 1px solid #a5d8ff; padding: 10px; border-radius: 10px; margin-top: 14px; }
-      .muted { color: #555; font-size: 14px; }
-      @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+      :root {
+        --bg: #ffffff;
+        --text: #111827;
+        --muted: #6b7280;
+        --border: #d1d5db;
+        --panel: #ffffff;
+        --error-bg: #fff7ed;
+        --error-border: #fed7aa;
+        --result-bg: #f8fafc;
+        --result-border: #e5e7eb;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+      .header { margin-bottom: 16px; }
+      h1 { font-size: 22px; margin: 0 0 6px; }
+      h2 { font-size: 16px; margin: 0 0 12px; }
+      h3 { font-size: 14px; margin: 16px 0 8px; }
+      p { margin: 0; }
+      code { background: #f3f4f6; padding: 2px 6px; border-radius: 8px; }
+
+      .layout { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 18px; align-items: start; }
+      .stack { display: grid; gap: 18px; }
+
+      .card { border: 1px solid var(--border); border-radius: 12px; padding: 16px; background: var(--panel); }
+      .row { display: grid; grid-template-columns: 170px 1fr; gap: 10px; align-items: center; margin: 10px 0; }
+      label { color: #111827; }
+
+      input, textarea {
+        width: 100%;
+        padding: 10px 10px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        font: inherit;
+        background: #fff;
+      }
+
+      .actions { display: flex; justify-content: flex-end; gap: 10px; }
+      button {
+        padding: 10px 14px;
+        border: 1px solid #111827;
+        background: #111827;
+        color: #fff;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      .muted { color: var(--muted); font-size: 14px; line-height: 1.45; }
+
+      .errors {
+        background: var(--error-bg);
+        border: 1px solid var(--error-border);
+        padding: 12px 14px;
+        border-radius: 12px;
+        margin: 0 0 14px;
+      }
+
+      .results { background: var(--result-bg); border-color: var(--result-border); }
+      .kv { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 10px; }
+      .kv-item { display: grid; grid-template-columns: 170px 1fr; gap: 10px; padding: 10px; border: 1px solid var(--result-border); border-radius: 12px; background: #fff; }
+      .kv-k { color: var(--muted); }
+      .kv-v { font-weight: 700; }
+
+      @media (min-width: 980px) {
+        .results { position: sticky; top: 16px; }
+      }
+      @media (max-width: 980px) {
+        .layout { grid-template-columns: 1fr; }
+      }
+      @media (max-width: 720px) {
+        .container { padding: 18px; }
+        .row { grid-template-columns: 1fr; gap: 6px; }
+        .kv-item { grid-template-columns: 1fr; gap: 6px; }
+        .actions { justify-content: stretch; }
+        button { width: 100%; }
+      }
     </style>
   </head>
   <body>
-    <h1>Dual-Engine Crop + Yield Predictor</h1>
-    <p class="muted">Uses saved artifacts from <code>Models/artifacts/dual_engine_system</code>.</p>
-
-    {% if errors %}
-      <div class="errors">
-        <b>Fix these:</b>
-        <ul>
-          {% for e in errors %}
-            <li>{{ e }}</li>
-          {% endfor %}
-        </ul>
+    <div class="container">
+      <div class="header">
+        <h1>Dual-Engine Crop + Yield Predictor</h1>
+        <p class="muted">Loads saved artifacts from <code>Models/artifacts/dual_engine_system</code>.</p>
       </div>
-    {% endif %}
 
-    <form method="POST" action="/predict">
-      <div class="grid">
-        <div class="card">
-          <h2>Crop recommendation (Engine 1)</h2>
-
-          <div class="row"><label for="N">N</label><input name="N" id="N" value="{{ form_defaults['N'] }}" /></div>
-          <div class="row"><label for="P">P</label><input name="P" id="P" value="{{ form_defaults['P'] }}" /></div>
-          <div class="row"><label for="K">K</label><input name="K" id="K" value="{{ form_defaults['K'] }}" /></div>
-          <div class="row"><label for="temperature">Temperature</label><input name="temperature" id="temperature" value="{{ form_defaults['temperature'] }}" /></div>
-          <div class="row"><label for="humidity">Humidity</label><input name="humidity" id="humidity" value="{{ form_defaults['humidity'] }}" /></div>
-          <div class="row"><label for="ph">pH</label><input name="ph" id="ph" value="{{ form_defaults['ph'] }}" /></div>
-          <div class="row"><label for="rainfall">Rainfall</label><input name="rainfall" id="rainfall" value="{{ form_defaults['rainfall'] }}" /></div>
-          <div class="row"><label for="City">City</label><input name="City" id="City" value="{{ form_defaults['City'] }}" /></div>
-          <div class="row"><label for="Season">Season</label><input name="Season" id="Season" value="{{ form_defaults['Season'] }}" /></div>
+      {% if errors %}
+        <div class="errors">
+          <b>Please fix:</b>
+          <ul>
+            {% for e in errors %}
+              <li>{{ e }}</li>
+            {% endfor %}
+          </ul>
         </div>
+      {% endif %}
 
-        <div class="card">
-          <h2>Yield prediction (Engine 2)</h2>
+      <form method="POST" action="/predict">
+        <div class="layout">
+          <div class="stack">
+            <div class="card">
+              <h2>Crop recommendation (Engine 1)</h2>
 
-          <div class="row"><label for="State">State</label><input name="State" id="State" value="{{ form_defaults['State'] }}" /></div>
-          <div class="row"><label for="District">District</label><input name="District" id="District" value="{{ form_defaults['District'] }}" /></div>
-          <div class="row"><label for="Crop">Crop</label><input name="Crop" id="Crop" value="{{ form_defaults['Crop'] }}" /></div>
-          <div class="row"><label for="YieldSeason">Season</label><input name="YieldSeason" id="YieldSeason" value="{{ form_defaults['YieldSeason'] }}" /></div>
-          <div class="row"><label for="Area">Area (hectare)</label><input name="Area" id="Area" value="{{ form_defaults['Area'] }}" /></div>
-          <div class="row"><label for="Year_start">Year (start)</label><input name="Year_start" id="Year_start" value="{{ form_defaults['Year_start'] }}" /></div>
+              <div class="row"><label for="N">N</label><input name="N" id="N" inputmode="decimal" value="{{ form_defaults['N'] }}" /></div>
+              <div class="row"><label for="P">P</label><input name="P" id="P" inputmode="decimal" value="{{ form_defaults['P'] }}" /></div>
+              <div class="row"><label for="K">K</label><input name="K" id="K" inputmode="decimal" value="{{ form_defaults['K'] }}" /></div>
+              <div class="row"><label for="temperature">Temperature</label><input name="temperature" id="temperature" inputmode="decimal" value="{{ form_defaults['temperature'] }}" /></div>
+              <div class="row"><label for="humidity">Humidity</label><input name="humidity" id="humidity" inputmode="decimal" value="{{ form_defaults['humidity'] }}" /></div>
+              <div class="row"><label for="ph">pH</label><input name="ph" id="ph" inputmode="decimal" value="{{ form_defaults['ph'] }}" /></div>
+              <div class="row"><label for="rainfall">Rainfall</label><input name="rainfall" id="rainfall" inputmode="decimal" value="{{ form_defaults['rainfall'] }}" /></div>
+              <div class="row"><label for="City">City</label><input name="City" id="City" value="{{ form_defaults['City'] }}" /></div>
+              <div class="row"><label for="Season">Season</label><input name="Season" id="Season" value="{{ form_defaults['Season'] }}" /></div>
+            </div>
 
-          <h3>Optional: Deep model (CNN→LSTM)</h3>
-          <p class="muted">Paste exactly {{ dl_window or 'N/A' }} past yields (t/ha), comma or newline separated. Leave empty to skip.</p>
-          <div class="row" style="grid-template-columns: 160px 1fr; align-items: start;">
-            <label for="past_yields">Past yields</label>
-            <textarea name="past_yields" id="past_yields" rows="4">{{ form_defaults['past_yields'] }}</textarea>
+            <div class="card">
+              <h2>Yield prediction (Engine 2)</h2>
+
+              <div class="row"><label for="State">State</label><input name="State" id="State" value="{{ form_defaults['State'] }}" /></div>
+              <div class="row"><label for="District">District</label><input name="District" id="District" value="{{ form_defaults['District'] }}" /></div>
+              <div class="row"><label for="Crop">Crop</label><input name="Crop" id="Crop" value="{{ form_defaults['Crop'] }}" /></div>
+              <div class="row"><label for="YieldSeason">Season</label><input name="YieldSeason" id="YieldSeason" value="{{ form_defaults['YieldSeason'] }}" /></div>
+              <div class="row"><label for="Area">Area (hectare)</label><input name="Area" id="Area" inputmode="decimal" value="{{ form_defaults['Area'] }}" /></div>
+              <div class="row"><label for="Year_start">Year (start)</label><input name="Year_start" id="Year_start" inputmode="numeric" value="{{ form_defaults['Year_start'] }}" /></div>
+
+              <h3>Optional: Deep model (CNN→LSTM)</h3>
+              <p class="muted">Paste exactly {{ dl_window or 'N/A' }} past yields (t/ha), comma or newline separated. Leave empty to skip.</p>
+              <div class="row" style="align-items: start;">
+                <label for="past_yields">Past yields</label>
+                <textarea name="past_yields" id="past_yields" rows="4" placeholder="Example: 1.2, 1.3, 1.1, 1.4">{{ form_defaults['past_yields'] }}</textarea>
+              </div>
+
+              <div class="actions">
+                <button type="submit">Predict</button>
+              </div>
+            </div>
           </div>
 
-          <button type="submit">Predict</button>
-
-          {% if pred %}
-            <div class="pred">
-              <h3>Predictions</h3>
-              <div><b>Crop (BayesNet):</b> {{ pred['crop_bayesnet'] }}</div>
-              <div><b>Crop (RandomForest):</b> {{ pred['crop_random_forest'] }}</div>
-              <div><b>Yield (tabular):</b> {{ pred['yield_tabular'] }} {{ pred['yield_units'] }}</div>
-              {% if dl_pred is not none %}
-                <div><b>Yield (CNN→LSTM):</b> {{ dl_pred }} {{ pred['yield_units'] }}</div>
-              {% endif %}
-            </div>
-          {% endif %}
+          <div class="card results">
+            <h2>Results</h2>
+            {% if pred %}
+              <div class="kv">
+                <div class="kv-item"><div class="kv-k">Crop (BayesNet)</div><div class="kv-v">{{ pred['crop_bayesnet'] }}</div></div>
+                <div class="kv-item"><div class="kv-k">Crop (RandomForest)</div><div class="kv-v">{{ pred['crop_random_forest'] }}</div></div>
+                <div class="kv-item"><div class="kv-k">Yield (tabular)</div><div class="kv-v">{{ pred['yield_tabular'] }} {{ pred['yield_units'] }}</div></div>
+                {% if dl_pred is not none %}
+                  <div class="kv-item"><div class="kv-k">Yield (CNN→LSTM)</div><div class="kv-v">{{ dl_pred }} {{ pred['yield_units'] }}</div></div>
+                {% endif %}
+              </div>
+            {% else %}
+              <p class="muted">Submit inputs to see predictions here.</p>
+            {% endif %}
+          </div>
         </div>
-      </div>
-    </form>
+      </form>
+    </div>
   </body>
 </html>
