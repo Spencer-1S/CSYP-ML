@@ -1,70 +1,49 @@
 # Dual-Engine Crop Recommendation and Yield Prediction
 
-This repository implements a **dual-engine machine learning system** for precision agriculture:
+A minimal, end-to-end ML project for precision agriculture:
 
-- **Engine 1 (Classification)**: crop recommendation from soil + weather features.
-- **Engine 2 (Regression)**: yield prediction from production data (tabular model) with an optional deep model for next-yield forecasting from past yield history.
+- **Crop recommendation (classification)** from soil + weather inputs.
+- **Yield prediction (regression)** from agricultural production data (tabular model), with an optional CNN→LSTM model that forecasts next yield from past yield history.
 
-The primary implementation is in [Models/dual_engine_system.py](Models/dual_engine_system.py) and includes training, evaluation, persistence (save/load), and a small Flask web app for inference.
-
----
-
-## Models
-
-### Engine 1 — Crop recommendation (classification)
-
-Trained on [Datasets/Crop_recommendation.csv](Datasets/Crop_recommendation.csv).
-
-- **Bayesian Network classifier** (`SimpleDiscreteBayesNetClassifier`)
-   - Discretizes numeric features into quantile bins.
-   - Models a dependency (rainfall/temperature → humidity) rather than assuming independence.
-- **RandomForestClassifier (tuned)**
-   - Uses a preprocessing pipeline (imputation + scaling for numeric, one-hot for categoricals).
-   - Hyperparameters are tuned with **GridSearchCV** and **Stratified K-Fold** CV.
-   - Explicitly compares `gini` vs `entropy` split criteria.
-
-Numeric inputs: `N, P, K, temperature, humidity, ph, rainfall`.
-
-Note: the crop dataset does not contain `City`/`Season`, but the system accepts them; missing values are imputed to `"Unknown"`.
-
-### Engine 2 — Yield prediction (regression)
-
-Trained on [Datasets/IndiaAgricultureCropProduction.csv](Datasets/IndiaAgricultureCropProduction.csv).
-
-1) **Tabular model** (default)
-- Preprocessing: numeric impute + scale; categorical impute + one-hot.
-- Regressor:
-   - **XGBoost** (`XGBRegressor`) if available.
-   - Fallback: `HistGradientBoostingRegressor` if XGBoost is not installed.
-
-2) **Optional deep model** (CNN→LSTM)
-- Learns a next-step yield forecast from **sliding windows** of past yields.
-- Enabled via `--train-dl`.
-- Inference requires past yield history of length `--dl-window`.
+Core implementation: [Models/dual_engine_system.py](Models/dual_engine_system.py). A simple inference UI is provided via Flask in `webapp/`.
 
 ---
 
-## Repository Structure
+## Quickstart
 
-```
-CSYP-ML/
-   Datasets/
-      Crop_recommendation.csv
-      DistrictWiseRainfallNormal.csv
-      IndiaAgricultureCropProduction.csv
-   Models/
-      dual_engine_system.py
-      model.ipynb
-      artifacts/
-         dual_engine_system/         # generated after training
-   webapp/
-      app.py
-      templates/
-         index.html
-   README.md
+From the repository root:
+
+```bash
+pip install pandas numpy scikit-learn joblib flask
+python Models/dual_engine_system.py --retrain --skip-eval
+python webapp/app.py
 ```
 
-Dataset note: the dual-engine training script currently uses `Crop_recommendation.csv` and `IndiaAgricultureCropProduction.csv`. `DistrictWiseRainfallNormal.csv` is included for exploration/extension.
+Open: http://127.0.0.1:5000/
+
+Stop the server: `Ctrl+C`.
+
+---
+
+## Models (High level)
+
+- **Crop engine**: Bayesian Network classifier + tuned RandomForestClassifier.
+- **Yield engine**: tabular regressor (XGBoost if installed; otherwise HistGradientBoostingRegressor) + optional CNN→LSTM (`--train-dl`).
+
+Crop numeric inputs: `N, P, K, temperature, humidity, ph, rainfall`.
+
+---
+
+## Datasets
+
+Used by the training script:
+
+- [Datasets/Crop_recommendation.csv](Datasets/Crop_recommendation.csv)
+- [Datasets/IndiaAgricultureCropProduction.csv](Datasets/IndiaAgricultureCropProduction.csv)
+
+Included for extension/exploration:
+
+- [Datasets/DistrictWiseRainfallNormal.csv](Datasets/DistrictWiseRainfallNormal.csv)
 
 ---
 
@@ -74,104 +53,87 @@ Dataset note: the dual-engine training script currently uses `Crop_recommendatio
 
 - Python **3.10+**
 
-### Install dependencies
+### Optional dependencies
 
-Minimum (train + run tabular models):
-
-```bash
-pip install pandas numpy scikit-learn joblib
-```
-
-For the web app:
-
-```bash
-pip install flask
-```
-
-For better yield performance (tabular):
-
-```bash
-pip install xgboost
-```
-
-For the optional deep yield model (CNN→LSTM):
-
-```bash
-pip install tensorflow
-```
+- Better tabular yield performance: `pip install xgboost`
+- Enable deep yield model (CNN→LSTM): `pip install tensorflow`
 
 ---
 
-## Train / Evaluate / Save Artifacts
+## Training (save/load artifacts)
 
-All training is driven by the script [Models/dual_engine_system.py](Models/dual_engine_system.py).
-
-Run commands from the repository root. On macOS/Linux, you can typically drop the leading `.` (e.g., `python Models/dual_engine_system.py ...`).
-
-Train crop + tabular yield models and save artifacts:
+Train crop + tabular yield and save artifacts:
 
 ```bash
-python .\Models\dual_engine_system.py --retrain --skip-eval
+python Models/dual_engine_system.py --retrain --skip-eval
 ```
 
-Train + run K-Fold evaluation (slower):
+Run K-Fold evaluation (slower):
 
 ```bash
-python .\Models\dual_engine_system.py --retrain
+python Models/dual_engine_system.py --retrain
 ```
 
-Also train the optional CNN→LSTM yield model:
+Also train the optional CNN→LSTM model:
 
 ```bash
-python .\Models\dual_engine_system.py --retrain --skip-eval --train-dl --dl-window 4 --dl-epochs 2
+python Models/dual_engine_system.py --retrain --skip-eval --train-dl --dl-window 4 --dl-epochs 2
 ```
 
-Control training size for the large production dataset:
+Production dataset size control:
 
 - Default: `--production-max-rows 80000`
-- Use full dataset: `--production-max-rows 0`
+- Full dataset: `--production-max-rows 0`
 
-### Saved artifacts
+---
 
-Artifacts are written to:
+## Artifacts
 
-`Models/artifacts/dual_engine_system/`
-
-Expected files after training:
+Artifacts are written to `Models/artifacts/dual_engine_system/`.
 
 - `crop_engine.joblib`
 - `yield_engine_tabular.joblib`
-- `yield_cnn_lstm.keras` (only if `--train-dl` was used)
+- `yield_cnn_lstm.keras` (only if trained with `--train-dl`)
 
 ---
 
 ## Web App (Inference)
 
-The Flask app loads the saved artifacts and serves a single page for inference.
-
-Start the server:
+Start:
 
 ```bash
-python .\webapp\app.py
+python webapp/app.py
 ```
 
-Open:
+Inputs:
 
-- http://127.0.0.1:5000/
+- **Crop**: N/P/K + temperature/humidity/pH/rainfall.
+- **Yield (tabular)**: State, District, Crop, Season, Area (Year is optional).
+- **Yield (CNN→LSTM, optional)**: paste exactly `dl_window` past yields (comma or newline separated).
 
-### Inputs (how to use the form)
+---
 
-- **Crop recommendation (Engine 1)**: fill in N/P/K + temperature/humidity/pH/rainfall.
-- **Yield prediction (Engine 2 tabular)**: fill in State/District/Crop/Season + Area (+ optional Year).
-- **Optional deep yield**: paste exactly `dl_window` past yields (comma or newline separated).
+## Project Structure
 
-Stop the server: press `Ctrl+C` in the terminal running Flask.
+```
+CSYP-ML/
+  Datasets/
+  Models/
+    dual_engine_system.py
+    artifacts/
+      dual_engine_system/
+  webapp/
+    app.py
+    templates/
+      index.html
+  README.md
+```
 
 ---
 
 ## Notes
 
-- [Models/model.ipynb](Models/model.ipynb) is an exploratory notebook; the production training/inference pipeline is the dual-engine script.
+- [Models/model.ipynb](Models/model.ipynb) is exploratory; the supported training/inference path is the dual-engine script + Flask app.
 
 ---
 

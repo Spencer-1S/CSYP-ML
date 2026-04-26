@@ -51,3 +51,5 @@ desktop.ini
 # Local secrets
 .env
 .env.*
+
+New.md
