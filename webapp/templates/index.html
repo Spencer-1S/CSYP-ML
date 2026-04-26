@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dual-Engine Crop + Yield Predictor</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+      .card { border: 1px solid #ddd; border-radius: 10px; padding: 16px; }
+      .row { display: grid; grid-template-columns: 160px 1fr; gap: 10px; align-items: center; margin: 8px 0; }
+      input, textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 8px; }
+      button { padding: 10px 14px; border: 1px solid #333; background: #111; color: #fff; border-radius: 10px; cursor: pointer; }
+      .errors { background: #fff3cd; border: 1px solid #ffeeba; padding: 10px; border-radius: 10px; margin-bottom: 14px; }
+      .pred { background: #e7f5ff; border: 1px solid #a5d8ff; padding: 10px; border-radius: 10px; margin-top: 14px; }
+      .muted { color: #555; font-size: 14px; }
+      @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <h1>Dual-Engine Crop + Yield Predictor</h1>
+    <p class="muted">Uses saved artifacts from <code>Models/artifacts/dual_engine_system</code>.</p>
+
+    {% if errors %}
+      <div class="errors">
+        <b>Fix these:</b>
+        <ul>
+          {% for e in errors %}
+            <li>{{ e }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <form method="POST" action="/predict">
+      <div class="grid">
+        <div class="card">
+          <h2>Crop recommendation (Engine 1)</h2>
+
+          <div class="row"><label for="N">N</label><input name="N" id="N" value="{{ form_defaults['N'] }}" /></div>
+          <div class="row"><label for="P">P</label><input name="P" id="P" value="{{ form_defaults['P'] }}" /></div>
+          <div class="row"><label for="K">K</label><input name="K" id="K" value="{{ form_defaults['K'] }}" /></div>
+          <div class="row"><label for="temperature">Temperature</label><input name="temperature" id="temperature" value="{{ form_defaults['temperature'] }}" /></div>
+          <div class="row"><label for="humidity">Humidity</label><input name="humidity" id="humidity" value="{{ form_defaults['humidity'] }}" /></div>
+          <div class="row"><label for="ph">pH</label><input name="ph" id="ph" value="{{ form_defaults['ph'] }}" /></div>
+          <div class="row"><label for="rainfall">Rainfall</label><input name="rainfall" id="rainfall" value="{{ form_defaults['rainfall'] }}" /></div>
+          <div class="row"><label for="City">City</label><input name="City" id="City" value="{{ form_defaults['City'] }}" /></div>
+          <div class="row"><label for="Season">Season</label><input name="Season" id="Season" value="{{ form_defaults['Season'] }}" /></div>
+        </div>
+
+        <div class="card">
+          <h2>Yield prediction (Engine 2)</h2>
+
+          <div class="row"><label for="State">State</label><input name="State" id="State" value="{{ form_defaults['State'] }}" /></div>
+          <div class="row"><label for="District">District</label><input name="District" id="District" value="{{ form_defaults['District'] }}" /></div>
+          <div class="row"><label for="Crop">Crop</label><input name="Crop" id="Crop" value="{{ form_defaults['Crop'] }}" /></div>
+          <div class="row"><label for="YieldSeason">Season</label><input name="YieldSeason" id="YieldSeason" value="{{ form_defaults['YieldSeason'] }}" /></div>
+          <div class="row"><label for="Area">Area (hectare)</label><input name="Area" id="Area" value="{{ form_defaults['Area'] }}" /></div>
+          <div class="row"><label for="Year_start">Year (start)</label><input name="Year_start" id="Year_start" value="{{ form_defaults['Year_start'] }}" /></div>
+
+          <h3>Optional: Deep model (CNN→LSTM)</h3>
+          <p class="muted">Paste exactly {{ dl_window or 'N/A' }} past yields (t/ha), comma or newline separated. Leave empty to skip.</p>
+          <div class="row" style="grid-template-columns: 160px 1fr; align-items: start;">
+            <label for="past_yields">Past yields</label>
+            <textarea name="past_yields" id="past_yields" rows="4">{{ form_defaults['past_yields'] }}</textarea>
+          </div>
+
+          <button type="submit">Predict</button>
+
+          {% if pred %}
+            <div class="pred">
+              <h3>Predictions</h3>
+              <div><b>Crop (BayesNet):</b> {{ pred['crop_bayesnet'] }}</div>
+              <div><b>Crop (RandomForest):</b> {{ pred['crop_random_forest'] }}</div>
+              <div><b>Yield (tabular):</b> {{ pred['yield_tabular'] }} {{ pred['yield_units'] }}</div>
+              {% if dl_pred is not none %}
+                <div><b>Yield (CNN→LSTM):</b> {{ dl_pred }} {{ pred['yield_units'] }}</div>
+              {% endif %}
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </form>
+  </body>
+</html>

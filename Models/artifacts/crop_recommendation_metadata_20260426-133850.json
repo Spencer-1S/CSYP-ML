@@ -1,0 +1,19 @@
+{
+  "features": [
+    "N",
+    "P",
+    "K",
+    "temperature",
+    "humidity",
+    "ph",
+    "rainfall"
+  ],
+  "target": "label",
+  "random_state": 42,
+  "cv": "StratifiedKFold(n_splits=5, shuffle=True, random_state=42)",
+  "selection_metric": "f1_macro",
+  "selected_model": "stacking",
+  "holdout_test_accuracy": 0.9931818181818182,
+  "holdout_test_f1_macro": 0.9931690047222781,
+  "saved_model_path": "e:\\Machine Learning Project (College)\\CSYP-ML\\Models\\artifacts\\crop_recommendation_pipeline_20260426-133850.joblib"
+}
