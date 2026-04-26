@@ -1,245 +1,185 @@
-# Crop Yield Prediction and Recommendation Using Machine Learning
+# Precision Agriculture: Dual-Engine Crop Recommendation + Yield Prediction
 
-## Project Overview
+This repository implements a **dual-engine machine learning system** for precision agriculture:
 
-This project recommends suitable crops based on soil nutrients and weather conditions using machine learning. The current notebook focuses on data collection, cleaning, validation, and feature preparation to support model training.
+- **Engine 1 (Classification)**: crop recommendation from soil + weather features.
+- **Engine 2 (Regression)**: yield prediction from production data (tabular model) with an optional deep model for next-yield forecasting from past yield history.
 
----
-
-## Objective
-
-Prepare a dataset to predict and recommend the most suitable crop for a given area using:
-
-- Soil nutrients: Nitrogen (N), Phosphorus (P), Potassium (K)
-- Weather conditions: Temperature, Humidity, pH, Rainfall
-
-## Intended Users
-
-- Farmers
-- Agricultural experts
-- Researchers
-- Policy makers
+The primary implementation is in [Models/dual_engine_system.py](Models/dual_engine_system.py) and includes training, evaluation, persistence (save/load), and a small Flask web app for inference.
 
 ---
 
-## Datasets
+## Models (What We Train)
 
-### 1) Crop Recommendation Dataset (Primary)
+### Engine 1 — Crop recommendation (classification)
 
-Contains crop-wise soil and weather requirements.
+Trained on [Datasets/Crop_recommendation.csv](Datasets/Crop_recommendation.csv).
 
-- Crops include rice, maize, chickpea, kidney beans, pigeon peas, and others
-- Features: N, P, K, temperature, humidity, pH, rainfall
-- Size: 2,200+ records
+- **Bayesian Network classifier** (`SimpleDiscreteBayesNetClassifier`)
+   - Discretizes numeric features into quantile bins.
+   - Models a dependency (rainfall/temperature → humidity) rather than assuming independence.
+- **RandomForestClassifier (tuned)**
+   - Uses a preprocessing pipeline (imputation + scaling for numeric, one-hot for categoricals).
+   - Hyperparameters are tuned with **GridSearchCV** and **Stratified K-Fold** CV.
+   - Explicitly compares `gini` vs `entropy` split criteria.
 
-Example:
-```
-Rice:     N=80-90, P=40-50, K=40-43, Temp=20-23C, Humidity=80-82%, pH=6.5, Rainfall=200mm
-Chickpea: N=20-40, P=55-80, K=75-85, Temp=17-20C, Humidity=15-20%, pH=7.5, Rainfall=70-90mm
-```
+Numeric inputs: `N, P, K, temperature, humidity, ph, rainfall`.
 
-### 2) District-Wise Rainfall Dataset
+Note: the crop dataset does not contain `City`/`Season`, but the system accepts them; missing values are imputed to `"Unknown"`.
 
-- Monthly rainfall for Indian districts (12 months)
-- Used to understand rainfall patterns by region
+### Engine 2 — Yield prediction (regression)
 
-### 3) Agriculture Crop Production Dataset
+Trained on [Datasets/IndiaAgricultureCropProduction.csv](Datasets/IndiaAgricultureCropProduction.csv).
 
-- Crop production data from 2001 onwards
-- Area, production, and yield across states/districts
+1) **Tabular model** (default)
+- Preprocessing: numeric impute + scale; categorical impute + one-hot.
+- Regressor:
+   - **XGBoost** (`XGBRegressor`) if available.
+   - Fallback: `HistGradientBoostingRegressor` if XGBoost is not installed.
 
----
-
-## Workflow
-
-1) Data collection from the three sources
-2) Data cleaning
-   - Handle missing values
-   - Remove duplicates
-   - Validate data types
-   - Review outliers (kept where they represent real conditions)
-   - Remove invalid records (e.g., zero area or negative production)
-3) Feature preparation (define features and target)
-4) Feature scaling to normalize different ranges
-5) Train-test split (80/20) for evaluation
-
-Planned next steps:
-
-6) Model training
-7) Prediction and deployment (future)
+2) **Optional deep model** (CNN→LSTM)
+- Learns a next-step yield forecast from **sliding windows** of past yields.
+- Enabled via `--train-dl`.
+- Inference requires past yield history of length `--dl-window`.
 
 ---
 
-## Project Structure
+## Repository Structure
 
 ```
 CSYP-ML/
-|-- Datasets/
-|   |-- Crop_recommendation.csv
-|   |-- DistrictWiseRainfallNormal.csv
-|   `-- IndiaAgricultureCropProduction.csv
-|-- Models/
-|   `-- model.ipynb
-`-- README.md
+   Datasets/
+      Crop_recommendation.csv
+      DistrictWiseRainfallNormal.csv
+      IndiaAgricultureCropProduction.csv
+   Models/
+      dual_engine_system.py
+      model.ipynb
+      artifacts/
+         dual_engine_system/         # generated after training
+   webapp/
+      app.py
+      templates/
+         index.html
+   README.md
 ```
+
+Dataset note: the dual-engine training script currently uses `Crop_recommendation.csv` and `IndiaAgricultureCropProduction.csv`. `DistrictWiseRainfallNormal.csv` is included for exploration/extension.
 
 ---
 
-## Setup and Usage
+## Setup
 
 ### Prerequisites
 
-- Python 3.7+
-- Jupyter Notebook
-- Python libraries: pandas, numpy, scikit-learn, matplotlib, seaborn, scipy, joblib
+- Python **3.10+**
 
-### Install Dependencies
+### Install dependencies
 
-Windows:
+Minimum (train + run tabular models):
+
 ```bash
-pip install pandas numpy scikit-learn jupyter matplotlib seaborn scipy joblib
+pip install pandas numpy scikit-learn joblib
 ```
 
-macOS/Linux:
+For the web app:
+
 ```bash
-pip3 install pandas numpy scikit-learn jupyter matplotlib seaborn scipy joblib
+pip install flask
 ```
 
-### Run the Notebook
+For better yield performance (tabular):
 
-1. Start Jupyter:
-   ```bash
-   jupyter notebook
-   ```
-2. Open `Models/model.ipynb`
-3. Run cells from top to bottom
-
----
-
-## Notebook Sections (High Level)
-
-- Import libraries
-- Load datasets
-- Data preprocessing and validation
-  - Missing values, duplicates, data types, outliers
-  - Label encoding, feature correlation, feature scaling
-  - Train-test split
-
----
-
-## Output
-
-Example:
+```bash
+pip install xgboost
 ```
-Dataset shape: (2200, 8)
-Missing values: 0
-Unique crops: 22
-Training set size: 1760 (80%)
-Testing set size: 440 (20%)
+
+For the optional deep yield model (CNN→LSTM):
+
+```bash
+pip install tensorflow
 ```
 
 ---
 
-## Key Concepts
+## Train / Evaluate / Save Artifacts
 
-- Supervised learning: train using labeled examples
-- Feature scaling: normalize features so no single feature dominates due to scale
-- Train-test split: evaluate on unseen data
-- Label encoding: convert crop names into numeric labels for model training
+All training is driven by the script [Models/dual_engine_system.py](Models/dual_engine_system.py).
 
----
+Run commands from the repository root. On macOS/Linux, you can typically drop the leading `.` (e.g., `python Models/dual_engine_system.py ...`).
 
-## Quality Checks
+Train crop + tabular yield models and save artifacts:
 
-The preprocessing validates:
-
-1. Data completeness (no missing values)
-2. Data consistency
-3. Data validity (e.g., no negative area; realistic ranges)
-4. Data balance (reasonable class distribution)
-5. Data leakage (train/test separation)
-
----
-
-## Learning Outcomes
-
-After running the notebook, you will understand:
-
-- Practical data cleaning and validation
-- Feature preparation for machine learning
-- Why scaling and train-test splitting matter
-- A standard end-to-end ML workflow for tabular data
-
----
-
-## Generated Files
-
-The notebook does not generate new dataset files. It reads existing CSV files, performs analysis/validation, trains a crop recommendation model, and saves the trained model pipeline for reuse.
-
-Artifacts saved after training:
-
-- `Models/artifacts/crop_recommendation_pipeline.joblib` (preprocessing + trained model)
-- `Models/artifacts/crop_recommendation_metadata.json` (feature order + training metadata)
-
-### Predict on Unseen Data
-
-```python
-import joblib
-import pandas as pd
-
-pipe = joblib.load('Models/artifacts/crop_recommendation_pipeline.joblib')
-
-X_new = pd.DataFrame([
-   {"N": 90, "P": 42, "K": 43, "temperature": 20.9, "humidity": 82.0, "ph": 6.5, "rainfall": 203.0}
-])
-
-print(pipe.predict(X_new)[0])
+```bash
+python .\Models\dual_engine_system.py --retrain --skip-eval
 ```
+
+Train + run K-Fold evaluation (slower):
+
+```bash
+python .\Models\dual_engine_system.py --retrain
+```
+
+Also train the optional CNN→LSTM yield model:
+
+```bash
+python .\Models\dual_engine_system.py --retrain --skip-eval --train-dl --dl-window 4 --dl-epochs 2
+```
+
+Control training size for the large production dataset:
+
+- Default: `--production-max-rows 80000`
+- Use full dataset: `--production-max-rows 0`
+
+### Saved artifacts
+
+Artifacts are written to:
+
+`Models/artifacts/dual_engine_system/`
+
+Expected files after training:
+
+- `crop_engine.joblib`
+- `yield_engine_tabular.joblib`
+- `yield_cnn_lstm.keras` (only if `--train-dl` was used)
+
+---
+
+## Web App (Inference)
+
+The Flask app loads the saved artifacts and serves a single page for inference.
+
+Start the server:
+
+```bash
+python .\webapp\app.py
+```
+
+Open:
+
+- http://127.0.0.1:5000/
+
+### Inputs (how to use the form)
+
+- **Crop recommendation (Engine 1)**: fill in N/P/K + temperature/humidity/pH/rainfall.
+- **Yield prediction (Engine 2 tabular)**: fill in State/District/Crop/Season + Area (+ optional Year).
+- **Optional deep yield**: paste exactly `dl_window` past yields (comma or newline separated).
+
+Stop the server: press `Ctrl+C` in the terminal running Flask.
 
 ---
 
 ## Notes
 
-- Current scope: data preprocessing and validation
-- Limitation: model training and prediction are not implemented yet
-
-Future work:
-
-1. Train and compare models
-2. Evaluate performance
-3. Build a simple user interface for recommendations
-4. Deploy for practical use
-
----
-
-## Troubleshooting
-
-- "Module not found: pandas": run `pip install pandas`
-- "CSV file not found": confirm the CSV files exist under `Datasets/`
-- Notebook cell errors: run cells in order and verify file paths
-
----
-
-## Resources
-
-- Pandas: https://pandas.pydata.org/docs/
-- Scikit-learn: https://scikit-learn.org/stable/
-- Kaggle Learn (ML fundamentals): https://www.kaggle.com/learn
+- [Models/model.ipynb](Models/model.ipynb) is an exploratory notebook; the production training/inference pipeline is the dual-engine script.
 
 ---
 
 ## Authors
 
 - Vishal Anand
-- Aneesh Jain 
+- Aneesh Jain
 
 ---
 
-## Support
-
-If you encounter issues, check this README first, then review notebook outputs/errors and confirm dependencies and dataset paths.
-
----
-
-Last Updated: March 2026
-Status: Data preprocessing complete; ready for model training.
+Last updated: April 2026
