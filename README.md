@@ -231,7 +231,7 @@ Future work:
 ## Authors
 
 - Vishal Anand
-- Aneesh Jain
+- Aneesh Jain 
 
 ---
 
