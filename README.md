@@ -133,7 +133,7 @@ CSYP-ML/
 
 ## Notes
 
-- [Models/model.ipynb](Models/model.ipynb) is exploratory; the supported training/inference path is the dual-engine script + Flask app.
+- [Models/data_preprocessing_and_analysis.ipynb](Models/data_preprocessing_and_analysis.ipynb) is exploratory; the supported training/inference path is the dual-engine script + Flask app.
 
 ---
 
