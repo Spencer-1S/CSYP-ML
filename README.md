@@ -9,7 +9,7 @@ The primary implementation is in [Models/dual_engine_system.py](Models/dual_engi
 
 ---
 
-## Models (What We Train)
+## Models
 
 ### Engine 1 — Crop recommendation (classification)
 
